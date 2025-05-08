@@ -10,9 +10,9 @@ module "levelup-rds" {
 
     ENVIRONMENT = var.ENVIRONMENT
     AWS_REGION  = var.AWS_REGION
-    vpc_private_subnet1 = var.vpc_private_subnet1
-    vpc_private_subnet2 = var.vpc_private_subnet2
-    vpc_id = var.vpc_id
+    vpc_private_subnet1 = module.levelup-vpc.private_subnet1_id
+    vpc_private_subnet2 = module.levelup-vpc.private_subnet1_id
+    vpc_id = module.levelup-vpc.my_vpc_id
 }
 
 resource "aws_security_group" "levelup_webservers"{
