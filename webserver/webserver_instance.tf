@@ -10,9 +10,6 @@ module "levelup-rds" {
 
     ENVIRONMENT = var.ENVIRONMENT
     AWS_REGION  = var.AWS_REGION
-    #vpc_private_subnet1 = module.levelup-vpc.private_subnet1_id
-    #vpc_private_subnet2 = module.levelup-vpc.private_subnet1_id
-    #vpc_id = "${module.levelup-vpc.my_vpc_id}"
 }
 
 resource "aws_security_group" "levelup_webservers"{
@@ -88,6 +85,70 @@ resource "aws_autoscaling_group" "levelup_webserver" {
   vpc_zone_identifier       = ["${module.levelup-vpc.public_subnet1_id}", "${module.levelup-vpc.public_subnet2_id}"]
   target_group_arns         = [aws_lb_target_group.load-balancer-target-group.arn]
 }
+
+#Autoscaling Configuration policy - Scaling Alarm
+resource "aws_autoscaling_policy" "levelup-cpu-policy" {
+  name                   = "levelup-cpu-policy"
+  autoscaling_group_name = aws_autoscaling_group.levelup_webserver.name
+  adjustment_type        = "ChangeInCapacity"
+  scaling_adjustment     = "1"
+  cooldown               = "200"
+  policy_type            = "SimpleScaling"
+}
+
+
+#Auto scaling Cloud Watch Monitoring
+resource "aws_cloudwatch_metric_alarm" "levelup-cpu-alarm" {
+  alarm_name          = "levelup-cpu-alarm"
+  alarm_description   = "Alarm once CPU Uses Increase"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = "2"
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/EC2"
+  period              = "120"
+  statistic           = "Average"
+  threshold           = "30"
+
+  dimensions = {
+    "AutoScalingGroupName" = aws_autoscaling_group.levelup_webserver.name
+  }
+
+  actions_enabled = true
+  alarm_actions   = [aws_autoscaling_policy.levelup-cpu-policy.arn]
+}
+
+
+#Auto Descaling Policy
+resource "aws_autoscaling_policy" "levelup-cpu-policy-scaledown" {
+  name                   = "levelup-cpu-policy-scaledown"
+  autoscaling_group_name = aws_autoscaling_group.levelup_webserver.name
+  adjustment_type        = "ChangeInCapacity"
+  scaling_adjustment     = "-1"
+  cooldown               = "200"
+  policy_type            = "SimpleScaling"
+}
+
+#Auto descaling cloud watch 
+resource "aws_cloudwatch_metric_alarm" "levelup-cpu-alarm-scaledown" {
+  alarm_name          = "levelup-cpu-alarm-scaledown"
+  alarm_description   = "Alarm once CPU Uses Decrease"
+  comparison_operator = "LessThanOrEqualToThreshold"
+  evaluation_periods  = "2"
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/EC2"
+  period              = "120"
+  statistic           = "Average"
+  threshold           = "10"
+
+  dimensions = {
+    "AutoScalingGroupName" = aws_autoscaling_group.levelup_webserver.name
+  }
+
+  actions_enabled = true
+  alarm_actions   = [aws_autoscaling_policy.levelup-cpu-policy-scaledown.arn]
+}
+
+
 
 #Application load balancer for app server
 resource "aws_lb" "levelup-load-balancer" {
